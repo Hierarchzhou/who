@@ -1,25 +1,66 @@
 <template>
   <div class="message-input-container">
-    <!-- 表情按钮 -->
-    <button @click="toggleStickerPicker" class="emoji-button" ref="emojiButton">
-      🎯
-    </button>
-    
-    <!-- 表情包选择器 -->
-    <div v-if="showStickerPicker" class="sticker-picker-container" ref="stickerPicker">
-      <StickerPicker @select="onStickerSelect" />
+    <div class="input-wrapper">
+      <!-- 上传按钮 -->
+      <button class="action-button" title="上传文件">
+        <span class="icon">➕</span>
+      </button>
+
+      <!-- 输入框 -->
+      <div class="textarea-wrapper">
+        <textarea
+          v-model="message"
+          @keydown.enter.prevent="sendMessage"
+          :placeholder="placeholder"
+          class="message-input"
+          ref="messageInput"
+          rows="1"
+          @input="autoResize"
+        ></textarea>
+      </div>
+
+      <!-- 右侧按钮组 -->
+      <div class="input-actions">
+        <!-- 表情按钮 -->
+        <button 
+          @click="toggleStickerPicker" 
+          class="action-button"
+          ref="emojiButton"
+          title="选择表情"
+        >
+          <span class="icon">😊</span>
+        </button>
+
+        <!-- 礼物按钮 -->
+        <button class="action-button" title="发送礼物">
+          <span class="icon">🎁</span>
+        </button>
+
+        <!-- GIF按钮 -->
+        <button class="action-button" title="选择 GIF">
+          <span class="icon">GIF</span>
+        </button>
+
+        <!-- 发送按钮，仅在有内容时显示 -->
+        <button 
+          v-if="message.trim()"
+          @click="sendMessage" 
+          class="action-button send-button"
+          title="发送消息"
+        >
+          <span class="icon">📨</span>
+        </button>
+      </div>
     </div>
 
-    <textarea
-      v-model="message"
-      @keydown.enter.prevent="sendMessage"
-      placeholder="输入消息..."
-      class="message-input"
-      ref="messageInput"
-    ></textarea>
-    <button @click="sendMessage" class="send-button">
-      发送
-    </button>
+    <!-- 表情包选择器 -->
+    <div 
+      v-if="showStickerPicker" 
+      class="sticker-picker-container" 
+      ref="stickerPicker"
+    >
+      <StickerPicker @select="onStickerSelect" />
+    </div>
   </div>
 </template>
 
@@ -30,6 +71,12 @@ export default {
   name: 'MessageInput',
   components: {
     StickerPicker
+  },
+  props: {
+    placeholder: {
+      type: String,
+      default: '发送消息...'
+    }
   },
   data() {
     return {
@@ -45,6 +92,7 @@ export default {
         this.message = '';
         this.$nextTick(() => {
           this.$refs.messageInput.focus();
+          this.autoResize();
         });
       }
     },
@@ -66,6 +114,12 @@ export default {
           !this.$refs.emojiButton?.contains(e.target)) {
         this.showStickerPicker = false;
       }
+    },
+    // 自动调整文本框高度
+    autoResize() {
+      const textarea = this.$refs.messageInput;
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
     }
   },
   mounted() {
@@ -80,92 +134,124 @@ export default {
 
 <style scoped>
 .message-input-container {
-  display: flex;
-  padding: 1rem;
-  background-color: var(--input-background); /* 使用主题变量 */
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 16px 24px;
+  background-color: var(--background-primary);
   position: relative;
-  z-index: 2;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 0 16px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+.textarea-wrapper {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .message-input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(0, 0, 0, 0.2);
-  color: var(--input-color); /* 使用主题变量 */
-  font-size: 0.95rem;
+  width: 100%;
+  max-height: 50vh;
+  padding: 11px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.375;
   resize: none;
-  height: 20px;
-  line-height: 20px;
-  transition: all 0.2s ease;
-  margin-left: 0.5rem;
 }
 
 .message-input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb, 138, 113, 88), 0.2);
 }
 
 .message-input::placeholder {
-  color: var(--input-placeholder); /* 使用主题变量 */
-  opacity: 0.7;
+  color: var(--text-muted);
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--interactive-normal);
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  color: var(--interactive-hover);
+  background-color: var(--background-accent);
+}
+
+.action-button .icon {
+  font-size: 20px;
 }
 
 .send-button {
-  margin-left: 0.75rem;
-  padding: 0.5rem 1.25rem;
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 1.5rem;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  color: var(--primary-color);
 }
 
 .send-button:hover {
-  background-color: var(--secondary-color);
-  transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  color: var(--text-normal);
+  background-color: var(--primary-color);
 }
 
-.send-button:active {
-  transform: translateY(0);
-}
-
-/* 修改表情选择器容器样式 */
+/* 表情选择器容器 */
 .sticker-picker-container {
   position: absolute;
   bottom: 100%;
-  left: 0;
+  right: 16px;
   margin-bottom: 8px;
-  width: 350px;
+  width: 400px;
+  height: 400px;
   background: var(--background-primary);
-  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--elevation-stroke),
+              var(--elevation-high);
   z-index: 1000;
 }
 
-/* 表情按钮样式优化 */
-.emoji-button {
-  padding: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: all 0.2s ease;
-  margin-right: 0.5rem;
-}
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .message-input-container {
+    padding: 0 8px 16px;
+  }
 
-.emoji-button:hover {
-  transform: scale(1.1);
-}
+  .input-wrapper {
+    padding: 0 8px;
+  }
 
-.emoji-button:focus {
-  outline: none;
+  .action-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .action-button .icon {
+    font-size: 18px;
+  }
+
+  .message-input {
+    font-size: 14px;
+  }
 }
 </style> 

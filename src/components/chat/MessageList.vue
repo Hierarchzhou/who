@@ -1,47 +1,54 @@
 <template>
   <div class="message-list" ref="messageList">
-    <div v-if="messages.length === 0" class="no-messages">
-      暂无消息，开始聊天吧！
+    <div v-if="messages.length === 0" class="welcome-message">
+      <div class="welcome-header">
+        <h2>欢迎来到 #general</h2>
+        <p>这是聊天室的开始。</p>
+      </div>
     </div>
-    <div v-else>
+    <div v-else class="messages-container">
       <div 
-        v-for="message in messages" 
+        v-for="(message, index) in messages" 
         :key="message.id || message.timestamp" 
-        class="message-item"
+        class="message-group"
+        :class="{ 'first-message': isFirstMessage(message, index) }"
       >
-        <div class="message-avatar">
-          <img 
-            :src="message.avatar || defaultAvatar" 
-            :alt="message.username" 
-            class="avatar-img" 
-            @error="handleAvatarError"
-            @click="handleAvatarClick(message.sender)"
-            :class="{ 'clickable': message.sender === currentUsername }"
-          />
-          <div 
-            v-if="message.sender === currentUsername"
-            :class="['status-indicator', userStatus]"
-          ></div>
-          <div 
-            v-else
-            class="status-indicator online"
-          ></div>
+        <!-- 日期分隔线 -->
+        <div v-if="shouldShowDateDivider(message, index)" class="date-divider">
+          <span class="date-text">{{ formatDate(message.timestamp) }}</span>
         </div>
-        <div 
-          class="message"
-          :class="{ 'self': message.sender === currentUsername, 'other': message.sender !== currentUsername }"
-        >
-          <div class="message-header">
-            <span class="username">{{ message.username }}</span>
-            <span class="timestamp">{{ formatTime(message.timestamp) }}</span>
+        
+        <!-- 消息内容 -->
+        <div class="message-item" :class="{ 'compact': !isFirstInGroup(message, index) }">
+          <div class="message-avatar" v-if="isFirstInGroup(message, index)">
+            <img 
+              :src="message.avatar || defaultAvatar" 
+              :alt="message.sender" 
+              class="avatar-img" 
+              @error="handleAvatarError"
+              @click="handleAvatarClick(message.sender)"
+              :class="{ 'clickable': message.sender === currentUsername }"
+            />
           </div>
-          <div class="message-body">
-            <template v-if="isSticker(message.content)">
-              <StickerMessage :sticker-id="extractStickerId(message.content)" />
-            </template>
-            <template v-else>
-              {{ message.content }}
-            </template>
+          <div class="message-content">
+            <div class="message-header" v-if="isFirstInGroup(message, index)">
+              <span 
+                class="username"
+                :style="{ color: getUsernameColor(message.sender) }"
+              >{{ message.sender }}</span>
+              <span class="timestamp">{{ formatMessageTime(message.timestamp) }}</span>
+            </div>
+            <div class="message-body" :class="{ 'with-timestamp': !isFirstInGroup(message, index) }">
+              <span v-if="!isFirstInGroup(message, index)" class="inline-timestamp">
+                {{ formatMessageTime(message.timestamp) }}
+              </span>
+              <template v-if="isSticker(message.content)">
+                <StickerMessage :sticker-id="extractStickerId(message.content)" />
+              </template>
+              <template v-else>
+                <div class="message-text">{{ message.content }}</div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -105,6 +112,58 @@ export default defineComponent({
       }
     }
 
+    // 生成一致的用户名颜色
+    const getUsernameColor = (username) => {
+      const colors = [
+        '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#e91e63',
+        '#f1c40f', '#e67e22', '#e74c3c', '#95a5a6', '#607d8b'
+      ]
+      let hash = 0
+      for (let i = 0; i < username.length; i++) {
+        hash = username.charCodeAt(i) + ((hash << 5) - hash)
+      }
+      return colors[Math.abs(hash) % colors.length]
+    }
+
+    // 检查是否是新的一天
+    const shouldShowDateDivider = (message, index) => {
+      if (index === 0) return true
+      const prevMessage = props.messages[index - 1]
+      const prevDate = new Date(prevMessage.timestamp).toLocaleDateString()
+      const currentDate = new Date(message.timestamp).toLocaleDateString()
+      return prevDate !== currentDate
+    }
+
+    // 格式化日期
+    const formatDate = (timestamp) => {
+      return new Date(timestamp).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    }
+
+    // 格式化消息时间
+    const formatMessageTime = (timestamp) => {
+      return new Date(timestamp).toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    // 检查是否是组中的第一条消息
+    const isFirstInGroup = (message, index) => {
+      if (index === 0) return true
+      const prevMessage = props.messages[index - 1]
+      const timeDiff = new Date(message.timestamp) - new Date(prevMessage.timestamp)
+      return prevMessage.sender !== message.sender || timeDiff > 5 * 60 * 1000 // 5分钟间隔
+    }
+
+    // 检查是否是新的消息组
+    const isFirstMessage = (message, index) => {
+      return index === 0 || shouldShowDateDivider(message, index)
+    }
+
     return {
       defaultAvatar,
       userStatus,
@@ -114,7 +173,13 @@ export default defineComponent({
       isSticker,
       extractStickerId,
       scrollToBottom,
-      messageList
+      messageList,
+      getUsernameColor,
+      shouldShowDateDivider,
+      formatDate,
+      formatMessageTime,
+      isFirstInGroup,
+      isFirstMessage
     }
   },
   watch: {
@@ -135,171 +200,187 @@ export default defineComponent({
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1rem 0;
   display: flex;
   flex-direction: column;
-  background-color: var(--chat-background); /* 使用主题变量 */
-  position: relative;
+  background-color: var(--background-primary);
+}
+
+.welcome-message {
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.welcome-header {
+  margin-bottom: 16px;
+}
+
+.welcome-header h2 {
+  color: var(--header-primary);
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.welcome-header p {
+  color: var(--text-normal);
+  font-size: 16px;
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px;
+}
+
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.date-divider {
+  margin: 24px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-divider::before,
+.date-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background-color: var(--background-accent);
+}
+
+.date-text {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0 8px;
 }
 
 .message-item {
   display: flex;
-  margin-bottom: 1.5rem;
-  align-items: flex-start;
+  gap: 16px;
+  padding: 2px 0;
+  position: relative;
+}
+
+.message-item:hover {
+  background-color: var(--background-secondary);
+}
+
+.message-item.compact {
+  margin-left: 56px;
 }
 
 .message-avatar {
-  margin-right: 0.75rem;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  position: relative;
 }
 
 .avatar-img {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  object-fit: cover;
-  border: var(--avatar-border, 2px solid rgba(255, 255, 255, 0.1));
-  box-shadow: var(--avatar-shadow, 0 2px 4px rgba(0, 0, 0, 0.2));
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-  z-index: 1;
-  background-color: #2f3136; /* Discord avatar background color */
+  cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 
 .avatar-img:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
 }
 
-/* 添加状态指示器样式 */
-.status-indicator {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background-color: #747f8d;
-  border: 2px solid var(--chat-background);
-  z-index: 2;
-  transition: background-color 0.2s ease;
-}
-
-.status-indicator.online {
-  background-color: #43b581;
-}
-
-.status-indicator.away {
-  background-color: #faa61a;
-}
-
-.status-indicator.busy {
-  background-color: #f04747;
-}
-
-.status-indicator.invisible {
-  background-color: #747f8d;
-}
-
-.status-indicator.online {
-  background-color: #43b581;
-}
-
-.status-indicator.away {
-  background-color: #faa61a;
-}
-
-.status-indicator.busy {
-  background-color: #f04747;
-}
-
-.status-indicator.invisible {
-  background-color: #747f8d;
-}
-
-.message-avatar::after {
-  content: '';
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background-color: var(--online-indicator);
-  border-radius: 50%;
-  bottom: 0;
-  left: 0;
-  border: 2px solid var(--chat-background);
-  z-index: 2;
-}
-
-.message {
-  max-width: 80%;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  position: relative;
-  animation: fadeIn 0.3s ease-out;
-  box-shadow: var(--message-shadow);
-  transition: transform 0.2s ease;
-  background-color: var(--other-message-bg); /* 使用主题变量 */
-  color: var(--other-message-color); /* 使用主题变量 */
-}
-
-.message:hover {
-  transform: translateY(-2px);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.message.self {
-  background-color: var(--self-message-bg); /* 使用主题变量 */
-  color: var(--self-message-color); /* 使用主题变量 */
+.message-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .message-header {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  opacity: 0.8;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .username {
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.username:hover {
+  text-decoration: underline;
 }
 
 .timestamp {
-  font-size: 0.75rem;
-  opacity: 0.7;
-  margin-left: 0.75rem;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .message-body {
-  word-break: break-word;
-  line-height: 1.4;
+  color: var(--text-normal);
+  font-size: 16px;
+  line-height: 1.375;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
-.no-messages {
-  text-align: center;
-  color: var(--timestamp-color); /* 使用主题变量 */
-  margin-top: 2rem;
-  font-style: italic;
-  opacity: 0.7;
+.message-body.with-timestamp {
+  display: flex;
+  gap: 8px;
 }
 
-/* 表情包消息样式 */
-.message-body :deep(.sticker-message) {
-  display: inline-block;
-  margin: 0.25rem 0;
+.inline-timestamp {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+  opacity: 0;
 }
 
-.avatar-img.clickable {
-  cursor: pointer;
-  transition: transform 0.2s ease;
+.message-item:hover .inline-timestamp {
+  opacity: 1;
 }
 
-.avatar-img.clickable:hover {
-  transform: scale(1.1);
+.message-text {
+  flex: 1;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .message-list {
+    padding: 8px 0;
+  }
+
+  .messages-container {
+    padding: 0 8px;
+  }
+
+  .message-item.compact {
+    margin-left: 40px;
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .avatar-img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .username {
+    font-size: 14px;
+  }
+
+  .message-body {
+    font-size: 14px;
+  }
 }
 </style> 

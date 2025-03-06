@@ -1,57 +1,81 @@
 <template>
   <div class="online-users-sidebar">
-    <!-- 频道头部 -->
-    <div class="sidebar-header">
-      <h3 class="sidebar-title">在线用户 ({{ onlineUsers.length }})</h3>
+    <!-- 频道信息 -->
+    <div class="channel-info">
+      <h3 class="channel-name">general</h3>
+      <button class="channel-button">
+        <span class="icon">⚙️</span>
+      </button>
     </div>
-    
-    <!-- 用户列表 -->
+
+    <!-- 用户分组列表 -->
     <div class="users-list">
-      <!-- 当前用户 -->
-      <div class="user-item current-user" v-if="currentUsername">
-        <div class="user-avatar-container">
-          <img 
-            :src="getCurrentUserAvatar()" 
-            alt="当前用户头像" 
-            class="user-avatar clickable"
-            @error="onAvatarError"
-            @click="handleAvatarClick"
-          />
-          <div :class="['user-status', currentUserStatus]"></div>
+      <!-- 在线用户组 -->
+      <div class="user-group">
+        <div class="group-header">
+          <span class="group-name">在线 — {{ onlineUsers.length }}</span>
+          <button class="group-collapse-button">
+            <span class="icon">▼</span>
+          </button>
         </div>
-        <div class="user-info">
-          <div class="user-name">{{ currentUsername }} <span class="user-tag">(我)</span></div>
-          <div class="user-status-text">{{ getStatusText(currentUserStatus) }}</div>
+
+        <!-- 当前用户 -->
+        <div 
+          class="user-item current-user" 
+          v-if="currentUsername"
+          @click="handleAvatarClick"
+        >
+          <div class="user-avatar-container">
+            <img 
+              :src="getCurrentUserAvatar()" 
+              alt="当前用户头像" 
+              class="user-avatar"
+              @error="onAvatarError"
+            />
+            <div 
+              :class="['status-indicator', currentUserStatus]"
+              :title="getStatusText(currentUserStatus)"
+            ></div>
+          </div>
+          <div class="user-info">
+            <div class="user-name">{{ currentUsername }}</div>
+            <div class="user-status-text">{{ getStatusText(currentUserStatus) }}</div>
+          </div>
+        </div>
+
+        <!-- 其他在线用户 -->
+        <div 
+          v-for="user in otherUsers" 
+          :key="user.username"
+          class="user-item"
+        >
+          <div class="user-avatar-container">
+            <img 
+              :src="user.avatar || defaultAvatar" 
+              alt="用户头像" 
+              class="user-avatar"
+              @error="onAvatarError"
+            />
+            <div 
+              class="status-indicator online"
+              title="在线"
+            ></div>
+          </div>
+          <div class="user-info">
+            <div class="user-name">{{ user.username }}</div>
+            <div class="user-status-text">在线</div>
+          </div>
         </div>
       </div>
-      
-      <!-- 分隔线 -->
-      <div class="sidebar-divider"></div>
-      
-      <!-- 其他在线用户 -->
-      <div 
-        v-for="user in otherUsers" 
-        :key="user.username"
-        class="user-item"
-      >
-        <div class="user-avatar-container">
-          <img 
-            :src="user.avatar || defaultAvatar" 
-            alt="用户头像" 
-            class="user-avatar"
-            @error="onAvatarError"
-          />
-          <div class="user-status online"></div>
+
+      <!-- 离线用户组 -->
+      <div class="user-group">
+        <div class="group-header">
+          <span class="group-name">离线 — 0</span>
+          <button class="group-collapse-button">
+            <span class="icon">▼</span>
+          </button>
         </div>
-        <div class="user-info">
-          <div class="user-name">{{ user.username }}</div>
-          <div class="user-status-text">在线</div>
-        </div>
-      </div>
-      
-      <!-- 无用户时的提示 -->
-      <div v-if="otherUsers.length === 0 && !currentUsername" class="no-users">
-        暂无其他用户在线
       </div>
     </div>
   </div>
@@ -123,27 +147,52 @@ export default {
 
 <style scoped>
 .online-users-sidebar {
-  width: 240px; /* Discord频道列表宽度 */
+  width: 240px;
   height: 100vh;
-  background-color: #2f3136; /* Discord频道列表背景色 */
+  background-color: var(--background-secondary);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  border-right: 1px solid #202225;
+  border-left: 1px solid var(--background-tertiary);
 }
 
-.sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid rgba(79, 84, 92, 0.48);
-  box-shadow: 0 1px 0 rgba(4, 4, 5, 0.2);
+.channel-info {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--background-tertiary);
+  flex-shrink: 0;
 }
 
-.sidebar-title {
-  color: #ffffff;
+.channel-name {
+  color: var(--header-primary);
   font-size: 16px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--interactive-normal);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.channel-button:hover {
+  color: var(--interactive-hover);
+  background-color: var(--background-modifier-hover);
 }
 
 .users-list {
@@ -152,26 +201,64 @@ export default {
   padding: 8px 0;
 }
 
+.user-group {
+  margin-bottom: 16px;
+}
+
+.group-header {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.group-name {
+  color: var(--channels-default);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.group-collapse-button {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--interactive-normal);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.group-collapse-button:hover {
+  color: var(--interactive-hover);
+}
+
+.group-collapse-button .icon {
+  font-size: 10px;
+}
+
 .user-item {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  cursor: pointer;
+  padding: 6px 8px;
+  margin: 1px 8px;
   border-radius: 4px;
-  margin: 0 8px;
-  transition: background-color 0.2s ease;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .user-item:hover {
-  background-color: rgba(79, 84, 92, 0.16);
-}
-
-.user-item.current-user {
-  background-color: rgba(79, 84, 92, 0.32);
+  background-color: var(--background-modifier-hover);
 }
 
 .user-avatar-container {
   position: relative;
+  width: 32px;
+  height: 32px;
   margin-right: 12px;
 }
 
@@ -182,39 +269,43 @@ export default {
   object-fit: cover;
 }
 
-.user-status {
+.status-indicator {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  bottom: 0;
-  left: 0;
-  border: 2px solid #2f3136;
+  border: 3px solid var(--background-secondary);
+  background-color: var(--offline-color);
 }
 
-.user-status.online {
-  background-color: #43b581;
+.status-indicator.online {
+  background-color: var(--online-color);
 }
 
-.user-status.away {
-  background-color: #faa61a;
+.status-indicator.away {
+  background-color: var(--idle-color);
 }
 
-.user-status.busy {
-  background-color: #f04747;
+.status-indicator.busy {
+  background-color: var(--dnd-color);
 }
 
-.user-status.invisible {
-  background-color: #747f8d;
+.status-indicator.invisible {
+  background-color: var(--offline-color);
 }
 
 .user-info {
   flex: 1;
-  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .user-name {
-  color: #ffffff;
+  color: var(--header-primary);
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
@@ -222,73 +313,47 @@ export default {
   text-overflow: ellipsis;
 }
 
-.user-tag {
-  color: #b9bbbe;
-  font-size: 12px;
-  font-weight: normal;
-}
-
 .user-status-text {
-  color: #b9bbbe;
+  color: var(--text-muted);
   font-size: 12px;
-  margin-top: 2px;
-}
-
-.sidebar-divider {
-  height: 1px;
-  background-color: rgba(79, 84, 92, 0.48);
-  margin: 8px 10px;
-}
-
-.no-users {
-  padding: 16px;
-  color: #b9bbbe;
-  font-style: italic;
-  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 滚动条样式 */
 .users-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.users-list::-webkit-scrollbar-thumb {
-  background-color: #202225;
-  border-radius: 2px;
+  width: 8px;
 }
 
 .users-list::-webkit-scrollbar-track {
   background-color: transparent;
+  border-radius: 4px;
 }
 
-/* 响应式设计 */
+.users-list::-webkit-scrollbar-thumb {
+  background-color: var(--background-tertiary);
+  border-radius: 4px;
+  min-height: 40px;
+}
+
+.users-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--background-accent);
+}
+
+/* 响应式样式 */
 @media (max-width: 768px) {
   .online-users-sidebar {
-    width: 100%;
-    height: auto;
-    max-height: 200px;
-    border-right: none;
-    border-bottom: 1px solid #202225;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
   }
-  
-  .users-list {
-    display: flex;
-    flex-wrap: wrap;
-    padding: 8px;
-  }
-  
-  .user-item {
-    width: auto;
-    margin: 4px;
-  }
-}
 
-.user-avatar.clickable {
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.user-avatar.clickable:hover {
-  transform: scale(1.1);
+  .online-users-sidebar.show {
+    transform: translateX(0);
+  }
 }
 </style> 

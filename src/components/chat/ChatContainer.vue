@@ -8,17 +8,34 @@
     
     <!-- 聊天界面，当用户已设置昵称时显示 -->
     <div v-else class="chat-interface">
+      <!-- 频道头部 -->
       <header class="chat-header">
-        <h2 class="chat-title">Vue聊天室</h2>
-        <div class="user-info-container">
-          <ThemeSelector />
-          <div class="user-info">
+        <div class="channel-info">
+          <span class="channel-hash">#</span>
+          <h2 class="channel-name">{{ currentServer.name || 'general' }}</h2>
+          <div class="channel-topic">
+            {{ currentServer.description || 'Welcome to the chat channel!' }}
+          </div>
+        </div>
+        
+        <div class="header-actions">
+          <div class="action-buttons">
+            <button class="icon-button" title="Pin Messages">
+              <span class="icon">📌</span>
+            </button>
+            <button class="icon-button" title="Show Member List">
+              <span class="icon">👥</span>
+            </button>
+            <ThemeSelector />
+          </div>
+          
+          <div class="user-info" @click="openProfileEditor">
+            <div class="user-status-indicator" :class="{ online: true }"></div>
             <img 
               :src="userAvatar || getFallbackAvatarUrl()" 
               alt="用户头像" 
               class="user-avatar"
               @error="handleAvatarError"
-              @click="openProfileEditor" 
             >
             <span class="current-username">{{ username }}</span>
           </div>
@@ -34,7 +51,10 @@
         />
       </div>
       
-      <MessageInput @send-message="sendMessage" />
+      <MessageInput 
+        :placeholder="`发送消息到 #${currentServer.name || 'general'}`"
+        @send-message="sendMessage" 
+      />
     </div>
     
     <!-- 个人资料编辑器 -->
@@ -66,6 +86,20 @@ export default {
     MessageInput,
     ThemeSelector,
     UserProfileEditor
+  },
+  props: {
+    currentUser: {
+      type: Object,
+      required: true
+    },
+    currentServer: {
+      type: Object,
+      default: () => ({
+        id: 'home',
+        name: 'general',
+        description: 'Welcome to the chat channel!'
+      })
+    }
   },
   emits: ['update-online-users', 'open-profile-editor'],
   setup() {
@@ -102,6 +136,15 @@ export default {
         this.$emit('update-online-users', newValue);
       },
       deep: true
+    },
+    // 监听服务器变化，重新加载消息
+    'currentServer.id': {
+      handler(newServerId) {
+        if (newServerId) {
+          this.loadServerMessages(newServerId);
+        }
+      },
+      immediate: true
     }
   },
   created() {
@@ -213,6 +256,19 @@ export default {
       }
     },
     
+    // 加载服务器特定的消息
+    loadServerMessages(serverId) {
+      const key = `server-messages-${serverId}`;
+      const savedMessages = localStorage.getItem(key);
+      this.messages = savedMessages ? JSON.parse(savedMessages) : [];
+    },
+
+    // 保存服务器消息
+    saveServerMessages() {
+      const key = `server-messages-${this.currentServer.id}`;
+      localStorage.setItem(key, JSON.stringify(this.messages));
+    },
+
     // 发送消息
     async sendMessage(content) {
       if (!content.trim()) return;
@@ -221,11 +277,13 @@ export default {
         const response = await axios.post(this.apiUrl, {
           sender: this.username,
           content: content,
-          avatar: this.userAvatar
+          avatar: this.userAvatar,
+          serverId: this.currentServer.id
         });
         
         // 将新消息添加到消息列表
         this.messages.push(response.data);
+        this.saveServerMessages();
         
         // 滚动到底部
         this.$nextTick(() => {
@@ -242,10 +300,12 @@ export default {
           sender: this.username,
           content: content,
           timestamp: new Date().toISOString(),
-          avatar: this.userAvatar
+          avatar: this.userAvatar,
+          serverId: this.currentServer.id
         };
         
         this.messages.push(mockMessage);
+        this.saveServerMessages();
         
         // 滚动到底部
         this.$nextTick(() => {
@@ -298,106 +358,160 @@ export default {
 <style scoped>
 .chat-container {
   flex: 1;
-  height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--chat-background); /* 使用主题变量 */
-  color: var(--text-color); /* 使用主题变量 */
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-  background-image: var(--background-image); /* 使用主题变量中的背景图案 */
-  background-repeat: repeat;
-  background-size: 100px 100px; /* 设置背景图案大小 */
+  height: 100vh;
+  background-color: var(--background-primary);
 }
 
 .chat-interface {
+  flex: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
-  backdrop-filter: blur(5px); /* 添加模糊效果 */
 }
 
 .chat-header {
-  padding: 1rem 1.5rem;
-  background-color: var(--primary-color); /* 使用主题变量 */
-  color: var(--header-color); /* 使用主题变量 */
+  height: 48px;
+  padding: 0 16px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  box-shadow: var(--header-shadow);
-  position: relative;
-  z-index: 2;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* 添加边框 */
-  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), transparent); /* 添加渐变效果 */
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--background-tertiary);
+  flex-shrink: 0;
 }
 
-.chat-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* 添加文字阴影 */
-}
-
-.user-info-container {
+.channel-info {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.channel-hash {
+  color: var(--text-muted);
+  font-size: 24px;
+  font-weight: 300;
+}
+
+.channel-name {
+  color: var(--header-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.channel-topic {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--background-accent);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--interactive-normal);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  color: var(--interactive-hover);
+  background-color: var(--background-accent);
+}
+
+.icon {
+  font-size: 20px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  margin-left: 1rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 0.5rem 0.75rem;
-  border-radius: 2rem;
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.05); /* 添加细微边框 */
-  transition: all 0.2s ease; /* 添加过渡效果 */
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .user-info:hover {
-  background-color: rgba(255, 255, 255, 0.15); /* 悬停时背景变亮 */
-  transform: translateY(-1px); /* 悬停时轻微上移 */
+  background-color: var(--background-accent);
+}
+
+.user-status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--background-primary);
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+}
+
+.user-status-indicator.online {
+  background-color: var(--online-color);
 }
 
 .user-avatar {
-  width: 32px; /* 增加头像尺寸 */
-  height: 32px; /* 增加头像尺寸 */
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  object-fit: cover;
-  border: var(--avatar-border, 1px solid rgba(255, 255, 255, 0.3));
-  box-shadow: var(--avatar-shadow, 0 2px 4px rgba(0, 0, 0, 0.2));
-  transition: transform 0.2s ease; /* 添加过渡效果 */
-}
-
-.user-avatar:hover {
-  transform: scale(1.1); /* 悬停时放大 */
+  position: relative;
 }
 
 .current-username {
-  margin-left: 0.5rem;
+  color: var(--header-primary);
+  font-size: 14px;
   font-weight: 500;
-  color: var(--text-color);
-  mix-blend-mode: overlay;
 }
 
 .chat-main {
-  display: flex;
   flex: 1;
-  overflow: hidden;
-  position: relative;
-  background-image: var(--background-image); /* 使用主题变量中的背景图案 */
-  background-repeat: repeat;
-  background-size: 100px 100px; /* 设置背景图案大小 */
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 响应式设计 */
+/* 响应式样式 */
 @media (max-width: 768px) {
-  .chat-container {
-    height: auto;
-    flex: 1;
+  .channel-topic {
+    display: none;
+  }
+  
+  .action-buttons {
+    display: none;
+  }
+  
+  .chat-header {
+    padding: 0 8px;
+  }
+  
+  .user-info {
+    padding: 4px;
+  }
+  
+  .current-username {
+    display: none;
   }
 }
 </style> 
