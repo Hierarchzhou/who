@@ -78,6 +78,42 @@
         </div>
       </div>
     </div>
+
+    <!-- Discord风格的用户功能栏 -->
+    <div class="user-controls">
+      <!-- 当前用户信息 -->
+      <div class="current-user-info" @click="handleAvatarClick">
+        <div class="user-avatar-container">
+          <img 
+            :src="getCurrentUserAvatar()" 
+            alt="当前用户头像" 
+            class="user-avatar"
+            @error="onAvatarError"
+          />
+          <div 
+            :class="['status-indicator', currentUserStatus]"
+            :title="getStatusText(currentUserStatus)"
+          ></div>
+        </div>
+        <div class="user-details">
+          <div class="user-name">{{ currentUsername }}</div>
+          <div class="user-status">{{ getStatusText(currentUserStatus) }}</div>
+        </div>
+      </div>
+
+      <!-- 功能按钮组 -->
+      <div class="control-buttons">
+        <button class="control-button" title="麦克风">
+          <span class="icon">🎤</span>
+        </button>
+        <button class="control-button" title="耳机">
+          <span class="icon">🎧</span>
+        </button>
+        <button class="control-button" title="设置" @click="handleAvatarClick">
+          <span class="icon">⚙️</span>
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -354,6 +390,107 @@ export default {
 
   .online-users-sidebar.show {
     transform: translateX(0);
+  }
+}
+
+/* Discord风格的用户功能栏 */
+.user-controls {
+  height: 52px;
+  padding: 0 8px;
+  background-color: var(--background-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--background-accent);
+}
+
+.current-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  flex: 1;
+}
+
+.current-user-info:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--header-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.control-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--interactive-normal);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-button:hover {
+  color: var(--interactive-hover);
+  background-color: var(--background-modifier-hover);
+}
+
+.control-button .icon {
+  font-size: 20px;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .user-controls {
+    padding: 0 4px;
+  }
+
+  .current-user-info {
+    padding: 4px;
+  }
+
+  .user-details {
+    display: none;
+  }
+
+  .control-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .control-button .icon {
+    font-size: 18px;
   }
 }
 </style> 

@@ -40,7 +40,7 @@
       </div>
 
       <!-- Add Server Button -->
-      <div class="server-item add-server" @click="$emit('add-server')">
+      <div class="server-item add-server" @click="openCreateDialog">
         <div class="server-icon">
           <span class="add-icon">+</span>
         </div>
@@ -56,26 +56,28 @@
       </div>
     </div>
 
-    <!-- Bottom Section -->
-    <div class="server-section">
-      <div class="server-divider"></div>
-      <div class="server-item settings-button" @click="$emit('open-settings')">
-        <div class="server-icon">
-          <span class="settings-icon">⚙️</span>
-        </div>
-        <div class="server-tooltip">用户设置</div>
-      </div>
-    </div>
+    <!-- 创建服务器的对话框 -->
+    <CreateServerModal 
+      :is-open="showCreateDialog"
+      @close="closeCreateDialog"
+      @create="handleServerCreate"
+    />
   </div>
 </template>
 
 <script>
+import CreateServerModal from './CreateServerModal.vue'
+
 export default {
   name: 'ServerList',
+  components: {
+    CreateServerModal
+  },
   data() {
     return {
       // 从localStorage获取服务器列表
-      localServers: JSON.parse(localStorage.getItem('chat-servers') || '[]')
+      localServers: JSON.parse(localStorage.getItem('chat-servers') || '[]'),
+      showCreateDialog: false
     }
   },
   props: {
@@ -97,7 +99,7 @@ export default {
   },
   methods: {
     changeServer(server) {
-      this.$emit('change-server', server);
+      this.$emit('change-server', server)
     },
     getServerAcronym(name) {
       // 获取服务器名称的首字母或第一个字符
@@ -106,21 +108,74 @@ export default {
         .map(word => word[0])
         .join('')
         .slice(0, 2)
-        .toUpperCase();
+        .toUpperCase()
     },
     // 处理localStorage变化
     handleStorageChange(event) {
       if (event.key === 'chat-servers') {
-        this.localServers = JSON.parse(event.newValue || '[]');
+        this.localServers = JSON.parse(event.newValue || '[]')
       }
+    },
+    // 打开创建对话框
+    openCreateDialog() {
+      this.showCreateDialog = true
+    },
+    // 关闭创建对话框
+    closeCreateDialog() {
+      this.showCreateDialog = false
+    },
+    // 处理服务器创建
+    handleServerCreate(serverData) {
+      const newServer = {
+        id: Date.now().toString(),
+        ...serverData,
+        channels: [
+          {
+            id: 'general',
+            name: 'general',
+            type: 'text',
+            description: 'General chat channel for everyone'
+          }
+        ],
+        roles: [
+          {
+            id: 'admin',
+            name: '管理员',
+            permissions: ['manage_server', 'manage_channels', 'manage_roles']
+          },
+          {
+            id: 'member',
+            name: '成员',
+            permissions: ['send_messages', 'read_messages']
+          }
+        ],
+        categories: [
+          {
+            id: 'text-channels',
+            name: '文字频道',
+            type: 'category',
+            channels: ['general']
+          }
+        ],
+        members: [],
+        createdAt: new Date().toISOString()
+      }
+      
+      // 保存到localStorage
+      const servers = [...this.localServers, newServer]
+      localStorage.setItem('chat-servers', JSON.stringify(servers))
+      this.localServers = servers
+      
+      // 切换到新服务器
+      this.changeServer(newServer)
     }
   },
   // 监听localStorage变化
   mounted() {
-    window.addEventListener('storage', this.handleStorageChange);
+    window.addEventListener('storage', this.handleStorageChange)
   },
   beforeUnmount() {
-    window.removeEventListener('storage', this.handleStorageChange);
+    window.removeEventListener('storage', this.handleStorageChange)
   }
 }
 </script>
