@@ -14,6 +14,21 @@
         @open-settings="openProfileEditor"
       />
       
+      <!-- 频道列表 -->
+      <div class="channels-sidebar">
+        <div class="server-header">
+          <h2>{{ currentServer.name || '服务器' }}</h2>
+          <button class="server-settings-button" @click="openServerSettings">
+            ⚙️
+          </button>
+        </div>
+        
+        <ChannelList
+          :current-channel-id="currentChannelId"
+          @select-channel="selectChannel"
+        />
+      </div>
+
       <!-- 在线用户列表 -->
       <OnlineUsersSidebar 
         :onlineUsers="onlineUsers" 
@@ -25,6 +40,7 @@
       <ChatContainer 
         :currentUser="{ username, avatar }" 
         :current-server="currentServer"
+        :current-channel="currentChannel"
         @update-online-users="updateOnlineUsers"
         @open-profile-editor="openProfileEditor"
       />
@@ -46,6 +62,7 @@ import ChatContainer from './components/chat/ChatContainer.vue'
 import ServerList from './components/chat/ServerList.vue'
 import OnlineUsersSidebar from './components/chat/OnlineUsersSidebar.vue'
 import UserProfileEditor from './components/chat/UserProfileEditor.vue'
+import ChannelList from './components/chat/ChannelList.vue'
 
 export default {
   name: 'App',
@@ -54,52 +71,23 @@ export default {
     ChatContainer,
     ServerList,
     OnlineUsersSidebar,
-    UserProfileEditor
+    UserProfileEditor,
+    ChannelList
   },
   data() {
     return {
-      username: '',
-      avatar: '',
-      onlineUsers: [],
+      username: localStorage.getItem('chat-username') || '',
+      avatar: localStorage.getItem('chat-avatar') || '',
       showProfileEditor: false,
-      currentServerId: 'home',  // 当前选中的服务器ID
-      currentServer: {  // 当前服务器信息
+      onlineUsers: [],
+      currentServerId: localStorage.getItem('current-server-id') || 'home',
+      currentServer: {
         id: 'home',
-        name: '主页'
+        name: '主页',
+        description: '欢迎来到聊天室！'
       },
-      // 服务器模板
-      serverTemplate: {
-        name: 'general',
-        description: 'Welcome to the chat channel!',
-        channels: [
-          {
-            id: 'general',
-            name: 'general',
-            type: 'text',
-            description: 'General chat channel for everyone'
-          }
-        ],
-        roles: [
-          {
-            id: 'admin',
-            name: '管理员',
-            permissions: ['manage_server', 'manage_channels', 'manage_roles']
-          },
-          {
-            id: 'member',
-            name: '成员',
-            permissions: ['send_messages', 'read_messages']
-          }
-        ],
-        categories: [
-          {
-            id: 'text-channels',
-            name: '文字频道',
-            type: 'category',
-            channels: ['general']
-          }
-        ]
-      }
+      currentChannelId: '',
+      currentChannel: null
     }
   },
   created() {
@@ -148,7 +136,7 @@ export default {
     
     // 更新在线用户列表
     updateOnlineUsers(users) {
-      this.onlineUsers = users;
+      this.onlineUsers = users
     },
     
     // 打开个人资料编辑器
@@ -176,16 +164,35 @@ export default {
     changeServer(server) {
       this.currentServerId = server.id
       this.currentServer = server
+      this.currentChannelId = ''
+      this.currentChannel = null
       
       // 保存当前服务器ID到localStorage
       localStorage.setItem('current-server-id', server.id)
     },
 
+    // 选择频道
+    selectChannel(channel) {
+      this.currentChannelId = channel.id
+      this.currentChannel = channel
+    },
+
+    // 打开服务器设置
+    openServerSettings() {
+      // TODO: 实现服务器设置功能
+      console.log('Opening server settings')
+    },
+
     // 显示添加服务器对话框
     showAddServerDialog() {
-      // 创建一个新的服务器
-      const newServer = this.createNewServer('新服务器')
-      this.changeServer(newServer)
+      // TODO: 实现添加服务器功能
+      console.log('Opening add server dialog')
+    },
+
+    // 显示服务器浏览
+    showExploreServers() {
+      // TODO: 实现服务器浏览功能
+      console.log('Opening server browser')
     },
 
     // 创建新服务器
@@ -225,12 +232,6 @@ export default {
         servers[index] = server
         localStorage.setItem('chat-servers', JSON.stringify(servers))
       }
-    },
-
-    // 显示服务器浏览器
-    showExploreServers() {
-      // TODO: 实现服务器浏览功能
-      console.log('显示服务器浏览器')
     }
   }
 }
@@ -392,5 +393,63 @@ input, textarea {
 
 input:focus, textarea:focus {
   box-shadow: 0 0 0 2px var(--primary-color);
+}
+</style>
+
+<style scoped>
+.app-container {
+  height: 100vh;
+  background-color: var(--background-primary);
+}
+
+.discord-layout {
+  display: flex;
+  height: 100vh;
+}
+
+.channels-sidebar {
+  width: 240px;
+  background-color: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.server-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--background-tertiary);
+  background-color: var(--background-secondary);
+}
+
+.server-header h2 {
+  margin: 0;
+  color: var(--header-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-settings-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.server-settings-button:hover {
+  color: var(--text-normal);
 }
 </style>

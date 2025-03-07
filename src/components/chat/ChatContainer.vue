@@ -11,15 +11,24 @@
       <!-- 频道头部 -->
       <header class="chat-header">
         <div class="channel-info">
-          <span class="channel-hash">#</span>
-          <h2 class="channel-name">{{ currentServer.name || 'general' }}</h2>
+          <span class="channel-hash">{{ currentChannel?.type === 'voice' ? '🔊' : '#' }}</span>
+          <h2 class="channel-name">{{ currentChannel?.name || 'general' }}</h2>
           <div class="channel-topic">
-            {{ currentServer.description || 'Welcome to the chat channel!' }}
+            {{ currentChannel?.topic || '欢迎来到聊天频道！' }}
           </div>
         </div>
         
         <div class="header-actions">
           <div class="action-buttons">
+            <button 
+              v-if="currentChannel?.type === 'voice'"
+              class="icon-button" 
+              :class="{ active: isInVoiceChannel }"
+              title="加入语音频道"
+              @click="toggleVoiceChannel"
+            >
+              <span class="icon">{{ isInVoiceChannel ? '🎤' : '🔇' }}</span>
+            </button>
             <button class="icon-button" title="Pin Messages">
               <span class="icon">📌</span>
             </button>
@@ -44,7 +53,7 @@
       
       <div class="chat-main">
         <MessageList 
-          :messages="messages" 
+          :messages="filteredMessages" 
           :currentUsername="username" 
           ref="messageList"
           @open-profile-editor="openProfileEditor"
@@ -52,7 +61,8 @@
       </div>
       
       <MessageInput 
-        :placeholder="`发送消息到 #${currentServer.name || 'general'}`"
+        :placeholder="getInputPlaceholder"
+        :disabled="isInputDisabled"
         @send-message="sendMessage" 
       />
     </div>
@@ -76,7 +86,7 @@ import UserProfileEditor from './UserProfileEditor.vue';
 import axios from 'axios';
 import { handleAvatarError, getFallbackAvatarUrl } from '../../utils/avatarUtils';
 import { useStore } from 'vuex';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 export default {
   name: 'ChatContainer',
@@ -99,19 +109,46 @@ export default {
         name: 'general',
         description: 'Welcome to the chat channel!'
       })
+    },
+    currentChannel: {
+      type: Object,
+      default: null
     }
   },
   emits: ['update-online-users', 'open-profile-editor'],
-  setup() {
+  setup(props) {
     const store = useStore();
+    const isInVoiceChannel = ref(false);
     
     // 使用计算属性从store获取用户信息
     const username = computed(() => store.getters['userProfile/username']);
     const userAvatar = computed(() => store.getters['userProfile/avatar']);
     
+    // 过滤当前频道的消息
+    const filteredMessages = computed(() => {
+      if (!props.currentChannel) return [];
+      return store.getters['messages/channelMessages'](props.currentChannel.id);
+    });
+
+    // 获取输入框占位符文本
+    const getInputPlaceholder = computed(() => {
+      if (!props.currentChannel) return '选择一个频道开始聊天';
+      return `发送消息到 ${props.currentChannel.type === 'voice' ? '🔊' : '#'}${props.currentChannel.name}`;
+    });
+
+    // 判断输入框是否禁用
+    const isInputDisabled = computed(() => {
+      return !props.currentChannel || 
+             (props.currentChannel.type === 'voice' && !isInVoiceChannel.value);
+    });
+
     return {
       username,
       userAvatar,
+      filteredMessages,
+      getInputPlaceholder,
+      isInputDisabled,
+      isInVoiceChannel,
       getFallbackAvatarUrl,
       handleAvatarError
     };
@@ -271,19 +308,19 @@ export default {
 
     // 发送消息
     async sendMessage(content) {
-      if (!content.trim()) return;
+      if (!content.trim() || !this.currentChannel) return;
       
       try {
-        const response = await axios.post(this.apiUrl, {
+        const messageData = {
+          channelId: this.currentChannel.id,
+          content: content.trim(),
           sender: this.username,
-          content: content,
           avatar: this.userAvatar,
-          serverId: this.currentServer.id
-        });
-        
-        // 将新消息添加到消息列表
-        this.messages.push(response.data);
-        this.saveServerMessages();
+          timestamp: new Date().toISOString()
+        };
+
+        // 发送消息到store
+        await this.$store.dispatch('messages/sendMessage', messageData);
         
         // 滚动到底部
         this.$nextTick(() => {
@@ -293,26 +330,6 @@ export default {
         });
       } catch (error) {
         console.error('发送消息失败:', error);
-        
-        // 开发阶段如果API未就绪，使用模拟数据
-        const mockMessage = {
-          id: Date.now(),
-          sender: this.username,
-          content: content,
-          timestamp: new Date().toISOString(),
-          avatar: this.userAvatar,
-          serverId: this.currentServer.id
-        };
-        
-        this.messages.push(mockMessage);
-        this.saveServerMessages();
-        
-        // 滚动到底部
-        this.$nextTick(() => {
-          if (this.$refs.messageList) {
-            this.$refs.messageList.scrollToBottom();
-          }
-        });
       }
     },
     // 打开个人资料编辑器
@@ -350,6 +367,12 @@ export default {
       // 设置轮询
       this.pollingInterval = setInterval(this.fetchMessages, 3000);
       this.onlinePollingInterval = setInterval(this.fetchOnlineUsers, 5000);
+    },
+    // 切换语音频道状态
+    toggleVoiceChannel() {
+      if (this.currentChannel?.type !== 'voice') return;
+      this.isInVoiceChannel = !this.isInVoiceChannel;
+      // TODO: 实现语音频道的加入/退出逻辑
     }
   }
 }
@@ -423,24 +446,31 @@ export default {
 .icon-button {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--interactive-normal);
-  background: transparent;
+  background: none;
   border: none;
+  color: var(--text-muted);
+  font-size: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-radius: 4px;
 }
 
 .icon-button:hover {
-  color: var(--interactive-hover);
-  background-color: var(--background-accent);
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
 }
 
-.icon {
-  font-size: 20px;
+.icon-button.active {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-selected);
+}
+
+.chat-main {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .user-info {
@@ -454,42 +484,27 @@ export default {
 }
 
 .user-info:hover {
-  background-color: var(--background-accent);
+  background-color: var(--background-modifier-hover);
 }
 
 .user-status-indicator {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  border: 2px solid var(--background-primary);
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-}
-
-.user-status-indicator.online {
-  background-color: var(--online-color);
+  background-color: var(--online-indicator);
 }
 
 .user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  position: relative;
+  object-fit: cover;
 }
 
 .current-username {
   color: var(--header-primary);
   font-size: 14px;
   font-weight: 500;
-}
-
-.chat-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
 }
 
 /* 响应式样式 */

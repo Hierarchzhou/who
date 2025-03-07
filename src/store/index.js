@@ -1,8 +1,10 @@
 import { createStore } from 'vuex'
 import { userProfileStore } from './userProfile'
+import { messagesStore } from './messages'
 
 export default createStore({
   modules: {
-    userProfile: userProfileStore
+    userProfile: userProfileStore,
+    messages: messagesStore
   }
 }) 
