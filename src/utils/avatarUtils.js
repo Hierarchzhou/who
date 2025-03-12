@@ -22,7 +22,7 @@ const avatarColors = [
 ];
 
 // 预定义的头像样式
-export const avatarStyles = [
+const avatarStyles = [
   'micah',      // 现代简约风格
   'avataaars',  // 卡通人物
   'bottts',     // 机器人风格

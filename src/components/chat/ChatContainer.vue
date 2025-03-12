@@ -157,8 +157,8 @@ export default {
     return {
       messages: [], // 消息列表
       onlineUsers: [], // 在线用户列表
-      apiUrl: 'http://localhost:3002/api/messages', // 消息API地址
-      usersApiUrl: 'http://localhost:3002/api/users', // 用户API地址
+      apiUrl: 'http://localhost:3001/api/messages', // 消息API地址
+      usersApiUrl: 'http://localhost:3001/api/users', // 用户API地址
       pollingInterval: null, // 用于轮询消息的计时器
       onlinePollingInterval: null, // 用于轮询在线用户的计时器
       currentTheme: localStorage.getItem('chat-theme') || 'discord', // 当前主题
